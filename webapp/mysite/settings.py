@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 SECRET_KEY = 'zb0$ctmfq$_z5ksi9t0^*ws&d)%ovwaocmdxbi%w1)i^3qv7fo'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# DEBUG = True
 
 TEMPLATE_DEBUG = True
 
@@ -56,12 +56,12 @@ WSGI_APPLICATION = 'mysite.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.6/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
-    }
-}
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+#     }
+# }
 
 # Internationalization
 # https://docs.djangoproject.com/en/1.6/topics/i18n/
@@ -91,8 +91,83 @@ STATICFILES_DIRS = (
 
 TEMPLATE_DIRS = [os.path.join(BASE_DIR, 'templates')]
 
-# Honor the 'X-Forwarded-Proto' header for request.is_secure()
-# SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+# For Heroku: Honor the 'X-Forwarded-Proto' header for request.is_secure()
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Allow all host headers
 # ALLOWED_HOSTS = ['*']
+
+"""
+For Heroku Deployment, set the following env_vars to the following values
+ALLOWED_HOSTS = ['*']
+DEBUG = "FALSE"
+HEROKU_DATABASE = "TRUE"
+"""
+
+########              LOAD SETTINGS FROM ENV VARS              ########
+# Helper function that makes it easy to get env vars or raise an error
+
+def get_env_variable(var_name, required=True, is_int=False, is_boolean=False, default=None):
+    """ Get the environment variable or return exception """
+    try:
+        env_var = os.environ[var_name]
+        if is_int:
+            try:
+                return int(env_var)
+            except ValueError:
+                error_msg = "%s environment variable must be a number" % var_name
+                raise ImproperlyConfigured(error_msg)
+        elif is_boolean:
+            if env_var == "TRUE":
+                return True
+            else:
+                return False
+        else:
+            return env_var
+    except KeyError:
+        if required:
+            error_msg = "Set the %s environment variable" % var_name
+            raise ImproperlyConfigured(error_msg)
+        else:
+            return default
+
+DEBUG = get_env_variable('DEBUG', required=False, is_boolean=True, default=True)
+TEMPLATE_DEBUG = DEBUG
+
+CSRF_COOKIE_SESSION = get_env_variable('CSRF_COOKIE_SESSION', required=False, is_boolean=True, default=False)
+SESSION_COOKIE_SECURE = get_env_variable('SESSION_COOKIE_SECURE', required=False, is_boolean=True, default=False)
+
+ALLOWED_HOSTS = get_env_variable('ALLOWED_HOSTS', required=False).split(',')  \
+    if get_env_variable('ALLOWED_HOSTS', required=False) else []
+
+#DATABASES
+
+if get_env_variable('HEROKU_DATABASE', required=False, is_boolean=True, default=False):
+    import dj_database_url
+
+    DATABASES = {
+        'default': '' 
+    }
+
+    DATABASES['default'] =  dj_database_url.config()
+else:
+    #TODO non-default database
+    DATABASES = {
+        'default': {
+            'ENGINE': '',
+            'NAME': '',
+            'USER': '',
+            'PASSWORD': '',
+            'HOST': '',
+            'PORT': '',
+        }
+    }
+
+    DATABASES['default']['ENGINE'] = get_env_variable(
+        'DATABASE_DEFAULT_ENGINE', required=False, default='django.db.backends.sqlite3')
+    DATABASES['default']['NAME'] = get_env_variable(
+        'DATABASE_DEFAULT_NAME', required=False, default=os.path.join(BASE_DIR, 'db.sqlite3'))
+    DATABASES['default']['USER'] = get_env_variable('DATABASE_DEFAULT_USER', required=False, default='')
+    DATABASES['default']['PASSWORD'] = get_env_variable('DATABASE_DEFAULT_PASSWORD', required=False, default='')
+    DATABASES['default']['HOST'] = get_env_variable('DATABASE_DEFAULT_HOST', required=False, default='')
+    DATABASES['default']['PORT'] = get_env_variable('DATABASE_DEFAULT_PORT', required=False, is_int=True, default='')
