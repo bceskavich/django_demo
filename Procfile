@@ -1,0 +1,1 @@
+web: sh -c 'cd webapp/ && gunicorn mysite.wsgi --log-level=info'
